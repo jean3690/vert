@@ -81,7 +81,7 @@ jobs:
           files: src-tauri/target/release/bundle/dmg/*.dmg
 
   desktop-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       CARGO_NET_RETRY: 10
       CARGO_HTTP_TIMEOUT: 120
@@ -146,7 +146,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             name: vert-linux-x64
           - os: windows-latest

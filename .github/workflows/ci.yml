@@ -25,7 +25,7 @@ jobs:
       - run: pnpm build
 
   rust:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       CARGO_NET_RETRY: 10
       CARGO_HTTP_TIMEOUT: 120
