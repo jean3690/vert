@@ -1,3 +1,61 @@
+<template>
+  <div class="format-section">
+    <!-- From -->
+    <div class="format-source">
+      <div class="format-section-label">{{ t('format.from') }}</div>
+      <template v-for="entry in groupedSources" :key="entry.group">
+        <div class="format-chips">
+          <button
+            v-for="fmt in entry.formats"
+            :key="fmt"
+            class="format-chip"
+            :class="{ selected: sourceFormat === fmt, disabled }"
+            @click="selectSource(fmt)"
+          >
+            <span class="dot" :class="FORMAT_CATEGORY[fmt]"></span>
+            {{ FORMAT_LABELS[fmt] }}
+          </button>
+        </div>
+      </template>
+    </div>
+
+    <div class="format-arrow">
+      <button
+        v-if="canSwap"
+        class="swap-btn"
+        :title="t('format.swap')"
+        @click="emit('swap')"
+      >
+        &#8645;
+      </button>
+      <span class="arrow-icon" aria-hidden="true"></span>
+    </div>
+
+    <!-- To -->
+    <div class="format-target">
+      <div class="format-section-label">{{ t('format.to') }}</div>
+      <div class="format-chips">
+        <template v-if="!sourceFormat">
+          <span class="chip-placeholder">{{ t('format.placeholder') }}</span>
+        </template>
+        <template v-else-if="targetFormats.length === 0">
+          <span class="chip-placeholder">{{ t('format.none') }}</span>
+        </template>
+        <button
+          v-for="fmt in targetFormats"
+          :key="fmt"
+          class="format-chip"
+          :class="{ selected: targetFormat === fmt, disabled }"
+          @click="selectTarget(fmt)"
+        >
+          <span class="dot" :class="FORMAT_CATEGORY[fmt]"></span>
+          {{ FORMAT_LABELS[fmt] }}
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from '../i18n';
@@ -60,61 +118,3 @@ function selectTarget(fmt: FileFormat) {
   emit('update:targetFormat', props.targetFormat === fmt ? null : fmt);
 }
 </script>
-
-<template>
-  <div class="format-section">
-    <!-- From -->
-    <div class="format-source">
-      <div class="format-section-label">{{ t('format.from') }}</div>
-      <template v-for="entry in groupedSources" :key="entry.group">
-        <div class="format-chips">
-          <button
-            v-for="fmt in entry.formats"
-            :key="fmt"
-            class="format-chip"
-            :class="{ selected: sourceFormat === fmt, disabled }"
-            @click="selectSource(fmt)"
-          >
-            <span class="dot" :class="FORMAT_CATEGORY[fmt]"></span>
-            {{ FORMAT_LABELS[fmt] }}
-          </button>
-        </div>
-      </template>
-    </div>
-
-    <div class="format-arrow">
-      <button
-        v-if="canSwap"
-        class="swap-btn"
-        :title="t('format.swap')"
-        @click="emit('swap')"
-      >
-        &#8645;
-      </button>
-      <span class="arrow-icon" aria-hidden="true"></span>
-    </div>
-
-    <!-- To -->
-    <div class="format-target">
-      <div class="format-section-label">{{ t('format.to') }}</div>
-      <div class="format-chips">
-        <template v-if="!sourceFormat">
-          <span class="chip-placeholder">{{ t('format.placeholder') }}</span>
-        </template>
-        <template v-else-if="targetFormats.length === 0">
-          <span class="chip-placeholder">{{ t('format.none') }}</span>
-        </template>
-        <button
-          v-for="fmt in targetFormats"
-          :key="fmt"
-          class="format-chip"
-          :class="{ selected: targetFormat === fmt, disabled }"
-          @click="selectTarget(fmt)"
-        >
-          <span class="dot" :class="FORMAT_CATEGORY[fmt]"></span>
-          {{ FORMAT_LABELS[fmt] }}
-        </button>
-      </div>
-    </div>
-  </div>
-</template>

@@ -1,47 +1,3 @@
-<script setup lang="ts">
-import { ref } from 'vue';
-import { openPath } from '@tauri-apps/plugin-opener';
-import { useI18n } from '../i18n';
-import { formatFileSize } from '../utils/formats';
-import type { ConvertResult, ConversionStatus } from '../types';
-
-const { t } = useI18n();
-
-defineProps<{
-  result: ConvertResult | null;
-  status: ConversionStatus;
-  errorMessage: string;
-  duration: string;
-}>();
-
-const emit = defineEmits<{ close: [] }>();
-
-const copied = ref(false);
-
-async function handleOpenFile(path: string) {
-  try { await openPath(path); } catch { /* fallback */ }
-}
-
-async function handleRevealInFolder(path: string) {
-  try {
-    const parent = path.replace(/[/\\][^/\\]+$/, '');
-    await openPath(parent);
-  } catch { /* fallback */ }
-}
-
-async function handleCopyPath(path: string) {
-  try {
-    await navigator.clipboard.writeText(path);
-    copied.value = true;
-    setTimeout(() => { copied.value = false; }, 2000);
-  } catch { /* fallback */ }
-}
-
-function extractFileName(path: string): string {
-  return path.split(/[/\\]/).pop() || path;
-}
-</script>
-
 <template>
   <!-- Converting -->
   <div v-if="status === 'converting'" class="status-panel converting">
@@ -96,3 +52,46 @@ function extractFileName(path: string): string {
     </div>
   </div>
 </template>
+<script setup lang="ts">
+import { ref } from 'vue';
+import { openPath } from '@tauri-apps/plugin-opener';
+import { useI18n } from '../i18n';
+import { formatFileSize } from '../utils/formats';
+import type { ConvertResult, ConversionStatus } from '../types';
+
+const { t } = useI18n();
+
+defineProps<{
+  result: ConvertResult | null;
+  status: ConversionStatus;
+  errorMessage: string;
+  duration: string;
+}>();
+
+const emit = defineEmits<{ close: [] }>();
+
+const copied = ref(false);
+
+async function handleOpenFile(path: string) {
+  try { await openPath(path); } catch { /* fallback */ }
+}
+
+async function handleRevealInFolder(path: string) {
+  try {
+    const parent = path.replace(/[/\\][^/\\]+$/, '');
+    await openPath(parent);
+  } catch { /* fallback */ }
+}
+
+async function handleCopyPath(path: string) {
+  try {
+    await navigator.clipboard.writeText(path);
+    copied.value = true;
+    setTimeout(() => { copied.value = false; }, 2000);
+  } catch { /* fallback */ }
+}
+
+function extractFileName(path: string): string {
+  return path.split(/[/\\]/).pop() || path;
+}
+</script>

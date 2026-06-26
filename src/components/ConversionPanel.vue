@@ -1,3 +1,40 @@
+<template>
+  <div style="display:flex;flex-direction:column;flex:1;min-height:0;">
+    <FileDropZone v-model="queuedFile" />
+
+    <FormatSelector
+      :source-format="sourceFormat"
+      :target-format="targetFormat"
+      :disabled="status === 'converting'"
+      @update:source-format="(v) => sourceFormat = v"
+      @update:target-format="(v) => targetFormat = v"
+      @swap="swapFormats"
+    />
+
+    <button
+      class="btn btn-primary"
+      :disabled="!canConvert()"
+      @click="handleConvert"
+    >
+      <template v-if="status === 'converting'">
+        <span class="spinner" style="width:16px;height:16px;border-width:2px;margin:0"></span>
+        {{ t('convert.converting') }}
+      </template>
+      <template v-else>
+        {{ t('convert.btn') }}
+      </template>
+    </button>
+
+    <ConversionResult
+      :result="result"
+      :status="status"
+      :error-message="errorMessage"
+      :duration="duration"
+      @close="handleReset"
+    />
+  </div>
+</template>
+
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
@@ -105,40 +142,3 @@ function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 </script>
-
-<template>
-  <div style="display:flex;flex-direction:column;flex:1;min-height:0;">
-    <FileDropZone v-model="queuedFile" />
-
-    <FormatSelector
-      :source-format="sourceFormat"
-      :target-format="targetFormat"
-      :disabled="status === 'converting'"
-      @update:source-format="(v) => sourceFormat = v"
-      @update:target-format="(v) => targetFormat = v"
-      @swap="swapFormats"
-    />
-
-    <button
-      class="btn btn-primary"
-      :disabled="!canConvert()"
-      @click="handleConvert"
-    >
-      <template v-if="status === 'converting'">
-        <span class="spinner" style="width:16px;height:16px;border-width:2px;margin:0"></span>
-        {{ t('convert.converting') }}
-      </template>
-      <template v-else>
-        {{ t('convert.btn') }}
-      </template>
-    </button>
-
-    <ConversionResult
-      :result="result"
-      :status="status"
-      :error-message="errorMessage"
-      :duration="duration"
-      @close="handleReset"
-    />
-  </div>
-</template>

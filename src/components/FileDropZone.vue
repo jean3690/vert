@@ -1,3 +1,46 @@
+<template>
+  <div
+    class="drop-zone"
+    :class="{ 'drag-over': dragOver, 'has-file': model }"
+    @dragover.prevent="dragOver = true"
+    @dragleave.prevent="dragOver = false"
+    @drop.prevent="dragOver = false"
+    @click="!model && browseFile()"
+  >
+    <div class="drop-zone-inner">
+      <!-- Empty -->
+      <template v-if="!model">
+        <div class="drop-zone-icon">&#128229;</div>
+        <div class="drop-zone-title">{{ t('drop.title') }}</div>
+        <!-- eslint-disable-next-line vue/no-v-html -->
+        <div
+          class="drop-zone-hint"
+          v-html="t('drop.hint', { link: `<span class='link'>${t('drop.browse')}</span>` })"
+        ></div>
+      </template>
+
+      <!-- File loaded -->
+      <template v-else>
+        <div class="file-row">
+          <div class="file-row-icon">&#128196;</div>
+          <div class="file-row-details">
+            <div class="file-row-name" :title="model.name">{{ model.name }}</div>
+            <div class="file-row-meta">
+              <template v-if="model.detectedFormat">
+                <span class="format-badge" :class="FORMAT_CATEGORY[model.detectedFormat as FileFormat]">
+                  {{ FORMAT_LABELS[model.detectedFormat as FileFormat] }}
+                </span>
+              </template>
+              <template v-else>{{ t('drop.unknown') }}</template>
+            </div>
+          </div>
+          <button class="file-row-clear" @click.stop="clearFile">&times;</button>
+        </div>
+      </template>
+    </div>
+  </div>
+</template>
+
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -55,45 +98,3 @@ async function browseFile() {
 function clearFile() { model.value = null; }
 </script>
 
-<template>
-  <div
-    class="drop-zone"
-    :class="{ 'drag-over': dragOver, 'has-file': model }"
-    @dragover.prevent="dragOver = true"
-    @dragleave.prevent="dragOver = false"
-    @drop.prevent="dragOver = false"
-    @click="!model && browseFile()"
-  >
-    <div class="drop-zone-inner">
-      <!-- Empty -->
-      <template v-if="!model">
-        <div class="drop-zone-icon">&#128229;</div>
-        <div class="drop-zone-title">{{ t('drop.title') }}</div>
-        <!-- eslint-disable-next-line vue/no-v-html -->
-        <div
-          class="drop-zone-hint"
-          v-html="t('drop.hint', { link: `<span class='link'>${t('drop.browse')}</span>` })"
-        ></div>
-      </template>
-
-      <!-- File loaded -->
-      <template v-else>
-        <div class="file-row">
-          <div class="file-row-icon">&#128196;</div>
-          <div class="file-row-details">
-            <div class="file-row-name" :title="model.name">{{ model.name }}</div>
-            <div class="file-row-meta">
-              <template v-if="model.detectedFormat">
-                <span class="format-badge" :class="FORMAT_CATEGORY[model.detectedFormat as FileFormat]">
-                  {{ FORMAT_LABELS[model.detectedFormat as FileFormat] }}
-                </span>
-              </template>
-              <template v-else>{{ t('drop.unknown') }}</template>
-            </div>
-          </div>
-          <button class="file-row-clear" @click.stop="clearFile">&times;</button>
-        </div>
-      </template>
-    </div>
-  </div>
-</template>
