@@ -1,0 +1,8 @@
+Place Liberation Sans .ttf font files here for DOCX to PDF conversion.
+Download from: https://github.com/liberationfonts/liberation-fonts
+
+Required files:
+- LiberationSans-Regular.ttf
+- LiberationSans-Bold.ttf
+- LiberationSans-Italic.ttf
+- LiberationSans-BoldItalic.ttf
