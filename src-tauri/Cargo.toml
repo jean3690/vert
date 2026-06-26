@@ -29,7 +29,7 @@ required-features = ["gui"]
 
 [features]
 default = ["gui"]
-gui = ["dep:tauri", "dep:tauri-plugin-opener", "dep:tauri-plugin-dialog"]
+gui = ["tauri", "tauri-plugin-opener", "tauri-plugin-dialog"]
 
 [dependencies]
 tauri = { version = "2", optional = true , features = [] }
