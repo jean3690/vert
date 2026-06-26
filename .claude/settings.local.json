@@ -26,7 +26,9 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(git commit --amend -m ' *)",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "Bash(gh run *)",
+      "Bash(gh release *)"
     ]
   }
 }

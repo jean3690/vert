@@ -98,18 +98,24 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - run: |
-          sudo apt-get update -q
+      - name: Install system deps
+        run: |
+          # Retry apt-get update up to 5 times
+          for i in $(seq 1 5); do sudo apt-get update -qq && break || sleep 10; done
           sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev \
-            libgtk-3-dev \
-            libgdk-pixbuf2.0-dev \
+            pkg-config \
             libglib2.0-dev \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libgdk-pixbuf2.0-dev \
             libpango1.0-dev \
             libcairo2-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf
+          # Verify glib-2.0 is found
+          dpkg -L libglib2.0-dev | grep -E '\.pc$' | head -5
+          pkg-config --modversion glib-2.0
 
       - run: pnpm install
 
