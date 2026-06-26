@@ -55,11 +55,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          prefix-key: v1-rust
 
       - name: Run tests
         run: cargo test
         working-directory: src-tauri
 
       - name: Build CLI
-        run: cargo build --bin vert --release
+        run: cargo build --bin vert-cli --release --no-default-features
         working-directory: src-tauri

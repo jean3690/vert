@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "File format converter — config, data, and document formats with desktop and CLI interfaces"
 authors = ["jean3690"]
 edition = "2021"
+default-run = "vert"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,13 +19,22 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [[bin]]
-name = "vert"
+name = "vert-cli"
 path = "src/cli.rs"
 
+[[bin]]
+name = "vert"
+path = "src/main.rs"
+required-features = ["gui"]
+
+[features]
+default = ["gui"]
+gui = ["tauri", "tauri-plugin-opener", "tauri-plugin-dialog"]
+
 [dependencies]
-tauri = { version = "2", features = [] }
-tauri-plugin-opener = "2"
-tauri-plugin-dialog = "2"
+tauri = { version = "2", optional = true , features = [] }
+tauri-plugin-opener = { version = "2", optional = true }
+tauri-plugin-dialog = { version = "2", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"

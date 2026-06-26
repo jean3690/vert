@@ -21,6 +21,9 @@ pnpm tauri dev
 # Frontend type-check + build
 pnpm build
 
+# CLI binary (no GUI deps)
+cd src-tauri && cargo build --bin vert-cli --no-default-features
+
 # Rust tests
 cd src-tauri && cargo test
 

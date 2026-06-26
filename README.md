@@ -41,8 +41,8 @@ Or via cargo:
 
 ```bash
 cd src-tauri
-cargo build --bin vert
-./target/debug/vert --help
+cargo build --bin vert-cli --no-default-features
+./target/debug/vert-cli --help
 ```
 
 ## CLI usage
@@ -69,7 +69,7 @@ pnpm build                  # type-check + production build
 
 cd src-tauri
 cargo test                  # Rust unit tests
-cargo build --bin vert      # CLI binary only
+cargo build --bin vert-cli --no-default-features  # CLI binary only
 ```
 
 Requires Liberation Sans fonts in `src-tauri/fonts/` for DOCX/MD/HTML → PDF conversions.
