@@ -26,6 +26,9 @@ jobs:
 
   rust:
     runs-on: ubuntu-latest
+    env:
+      CARGO_NET_RETRY: 10
+      CARGO_HTTP_TIMEOUT: 120
     steps:
       - uses: actions/checkout@v4
 

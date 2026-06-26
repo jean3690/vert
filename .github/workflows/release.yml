@@ -12,6 +12,9 @@ jobs:
 
   desktop-windows:
     runs-on: windows-latest
+    env:
+      CARGO_NET_RETRY: 10
+      CARGO_HTTP_TIMEOUT: 120
     steps:
       - uses: actions/checkout@v4
 
@@ -43,6 +46,9 @@ jobs:
 
   desktop-macos:
     runs-on: macos-latest
+    env:
+      CARGO_NET_RETRY: 10
+      CARGO_HTTP_TIMEOUT: 120
     steps:
       - uses: actions/checkout@v4
 
@@ -74,6 +80,9 @@ jobs:
 
   desktop-linux:
     runs-on: ubuntu-latest
+    env:
+      CARGO_NET_RETRY: 10
+      CARGO_HTTP_TIMEOUT: 120
     steps:
       - uses: actions/checkout@v4
 
@@ -121,6 +130,9 @@ jobs:
   # ── CLI binaries per platform ──
 
   cli:
+    env:
+      CARGO_NET_RETRY: 10
+      CARGO_HTTP_TIMEOUT: 120
     strategy:
       matrix:
         include:
