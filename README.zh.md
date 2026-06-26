@@ -16,7 +16,7 @@
 
 ### 桌面应用
 
-从 [Releases](https://github.com/jean3690/file_switch/releases) 下载。
+从 [Releases](https://github.com/jean3690/vert/releases) 下载。
 
 或从源码构建：
 
@@ -27,11 +27,17 @@ pnpm tauri build
 
 ### 命令行
 
-```bash
-cargo install --path src-tauri --bin vert
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/jean3690/vert/master/install.ps1 | iex
 ```
 
-或直接编译运行：
+**macOS / Linux:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/jean3690/vert/master/install.sh | bash
+```
+
+或通过 cargo 安装：
 
 ```bash
 cd src-tauri

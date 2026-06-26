@@ -16,7 +16,7 @@ File format converter — desktop app + CLI. Built with Tauri 2 + Vue 3 + Rust.
 
 ### Desktop app
 
-Download from [Releases](https://github.com/jean3690/file_switch/releases).
+Download from [Releases](https://github.com/jean3690/vert/releases).
 
 Or build from source:
 
@@ -27,11 +27,17 @@ pnpm tauri build
 
 ### CLI
 
-```bash
-cargo install --path src-tauri --bin vert
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/jean3690/vert/master/install.ps1 | iex
 ```
 
-Or build and run directly:
+**macOS / Linux:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/jean3690/vert/master/install.sh | bash
+```
+
+Or via cargo:
 
 ```bash
 cd src-tauri
