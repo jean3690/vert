@@ -31,8 +31,18 @@ jobs:
 
       - name: Install system deps
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libgdk-pixbuf2.0-dev \
+            libglib2.0-dev \
+            libpango1.0-dev \
+            libcairo2-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+          pkg-config --exists glib-2.0 || echo "::warning::glib-2.0 not found by pkg-config"
 
       - uses: dtolnay/rust-toolchain@stable
 
