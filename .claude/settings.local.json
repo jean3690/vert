@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -L -o LiberationSans-Regular.ttf \"https://github.com/liberationfonts/liberation-fonts/raw/main/src/liberationsans/LiberationSans-Regular.ttf\")",
+      "Bash(curl -L -o LiberationSans-Bold.ttf \"https://github.com/liberationfonts/liberation-fonts/raw/main/src/liberationsans/LiberationSans-Bold.ttf\")",
+      "Bash(curl -L -o LiberationSans-Italic.ttf \"https://github.com/liberationfonts/liberation-fonts/raw/main/src/liberationsans/LiberationSans-Italic.ttf\")",
+      "Bash(curl -L -o LiberationSans-BoldItalic.ttf \"https://github.com/liberationfonts/liberation-fonts/raw/main/src/liberationsans/LiberationSans-BoldItalic.ttf\")",
+      "Bash(pnpm install *)",
+      "Bash(cargo build *)",
+      "Bash(cargo test *)",
+      "Bash(curl -L -o LiberationSans-Regular.ttf \"https://github.com/liberationfonts/liberation-fonts/releases/download/2.1.5/LiberationSans-Regular.ttf\")",
+      "Bash(curl -L -o LiberationSans-Regular.ttf \"https://raw.githubusercontent.com/liberationfonts/liberation-fonts/refs/heads/main/src/liberationsans/LiberationSans-Regular.ttf\")",
+      "Bash(curl -sL \"https://github.com/liberationfonts/liberation-fonts/raw/main/src/liberationsans/LiberationSans-Regular.ttf\" -o LiberationSans-Regular.ttf -w \"%{http_code}\")",
+      "Bash(pnpm build *)",
+      "Bash(cargo check *)",
+      "Bash(./target/debug/vert --list)",
+      "Bash(./target/debug/vert --help)",
+      "Bash(./target/debug/vert test.json)",
+      "Bash(echo '{\"name\":\"test\",\"count\":42}')",
+      "Bash(./target/debug/vert /tmp/test_vert.json yaml)",
+      "Read(//tmp/**)",
+      "Bash(./target/debug/vert /tmp/test_vert.yaml toml)",
+      "Bash(rm /tmp/test_vert.json /tmp/test_vert.yaml /tmp/test_vert.toml)",
+      "Bash(git rm *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git commit --amend -m ' *)"
+    ]
+  }
+}
