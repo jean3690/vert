@@ -2,6 +2,7 @@
   "name": "vert",
   "private": true,
   "version": "0.1.0",
+  "description": "File format converter — config, data, and document formats with desktop and CLI interfaces",
   "type": "module",
   "scripts": {
     "dev": "vite",
