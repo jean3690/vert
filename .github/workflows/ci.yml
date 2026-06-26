@@ -61,5 +61,5 @@ jobs:
         working-directory: src-tauri
 
       - name: Build CLI
-        run: cargo build --bin vert --release
+        run: cargo build --bin vert-cli --release --no-default-features
         working-directory: src-tauri

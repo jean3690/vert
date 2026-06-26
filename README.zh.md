@@ -41,8 +41,8 @@ curl -fsSL https://raw.githubusercontent.com/jean3690/vert/master/install.sh | b
 
 ```bash
 cd src-tauri
-cargo build --bin vert
-./target/debug/vert --help
+cargo build --bin vert-cli --no-default-features
+./target/debug/vert-cli --help
 ```
 
 ## CLI 用法
@@ -69,7 +69,7 @@ pnpm build                  # 类型检查 + 生产构建
 
 cd src-tauri
 cargo test                  # Rust 单元测试
-cargo build --bin vert      # 仅编译 CLI
+cargo build --bin vert-cli --no-default-features  # 仅编译 CLI
 ```
 
 DOCX/MD/HTML → PDF 转换需要将 Liberation Sans 字体放入 `src-tauri/fonts/` 目录。

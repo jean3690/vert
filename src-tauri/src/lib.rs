@@ -1,7 +1,10 @@
-pub mod commands;
 pub mod converter;
 pub mod error;
 
+#[cfg(feature = "gui")]
+pub mod commands;
+
+#[cfg(feature = "gui")]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
