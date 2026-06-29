@@ -98,8 +98,8 @@ pub fn convert_config(
         Format::Xml => xml_to_value(input)?,
         _ => {
             return Err(ConversionError::UnsupportedConversion {
-                source: source.to_string(),
-                target: target.to_string(),
+                from: source.to_string(),
+                to: target.to_string(),
             });
         }
     };
@@ -111,8 +111,8 @@ pub fn convert_config(
         Format::Toml => value_to_toml(&value),
         Format::Xml => value_to_xml(&value),
         _ => Err(ConversionError::UnsupportedConversion {
-            source: source.to_string(),
-            target: target.to_string(),
+            from: source.to_string(),
+            to: target.to_string(),
         }),
     }
 }

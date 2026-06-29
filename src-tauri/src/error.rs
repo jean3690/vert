@@ -1,58 +1,29 @@
 use serde::Serialize;
-use std::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum ConversionError {
-    UnsupportedConversion { source: String, target: String },
-    Io(std::io::Error),
+    #[error("unsupported conversion: {from} -> {to}")]
+    UnsupportedConversion { from: String, to: String },
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("parse error: {0}")]
     ParseError(String),
+    #[error("serialize error: {0}")]
     SerializeError(String),
+    #[error("invalid format: {0}")]
     InvalidFormat(String),
-    ZipError(zip::result::ZipError),
+    #[error("zip error: {0}")]
+    ZipError(#[from] zip::result::ZipError),
+    #[error("UTF-8 error: {0}")]
     Utf8Error(String),
+    #[error("font error: {0}")]
     FontError(String),
+    #[error("output file already exists: {0}")]
+    OutputExists(String),
 }
 
-impl fmt::Display for ConversionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::UnsupportedConversion { source, target } => {
-                write!(f, "unsupported conversion: {} -> {}", source, target)
-            }
-            Self::Io(e) => write!(f, "IO error: {}", e),
-            Self::ParseError(msg) => write!(f, "parse error: {}", msg),
-            Self::SerializeError(msg) => write!(f, "serialize error: {}", msg),
-            Self::InvalidFormat(msg) => write!(f, "invalid format: {}", msg),
-            Self::ZipError(e) => write!(f, "zip error: {}", e),
-            Self::Utf8Error(msg) => write!(f, "UTF-8 error: {}", msg),
-            Self::FontError(msg) => write!(f, "font error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for ConversionError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Io(e) => Some(e),
-            Self::ZipError(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-// Allow ? operator for IO errors
-impl From<std::io::Error> for ConversionError {
-    fn from(e: std::io::Error) -> Self {
-        Self::Io(e)
-    }
-}
-
-impl From<zip::result::ZipError> for ConversionError {
-    fn from(e: zip::result::ZipError) -> Self {
-        Self::ZipError(e)
-    }
-}
-
+// Utf8Error can come from both std::str::Utf8Error and std::string::FromUtf8Error,
+// so these From impls are separate from the derive.
 impl From<std::str::Utf8Error> for ConversionError {
     fn from(e: std::str::Utf8Error) -> Self {
         Self::Utf8Error(e.to_string())

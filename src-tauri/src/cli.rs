@@ -44,6 +44,18 @@ fn convert(input: &str, target_str: &str, output: Option<&str>) -> Result<(), Co
 
     let target = converter::Format::from_str(target_str)?;
 
+    // Pre-flight: check that the conversion is supported
+    let valid = source.valid_targets();
+    if !valid.contains(&target) {
+        eprintln!(
+            "Error: {} cannot be converted to {} (valid targets: {})",
+            source,
+            target,
+            valid.iter().map(|f| f.to_string()).collect::<Vec<_>>().join(", "),
+        );
+        std::process::exit(1);
+    }
+
     let output_path = match output {
         Some(p) => p.to_string(),
         None => {

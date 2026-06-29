@@ -22,11 +22,16 @@ pub fn convert_file(
     let source = converter::Format::from_str(&source_format)?;
     let target = converter::Format::from_str(&target_format)?;
 
-    let output = converter::convert_file(&input, &source, &target)?;
-
     let source_path = Path::new(&file_path);
     let output_path = source_path.with_extension(target.extension());
 
+    if output_path.exists() {
+        return Err(ConversionError::OutputExists(
+            output_path.to_string_lossy().to_string(),
+        ));
+    }
+
+    let output = converter::convert_file(&input, &source, &target)?;
     std::fs::write(&output_path, &output)?;
 
     let size = std::fs::metadata(&output_path)

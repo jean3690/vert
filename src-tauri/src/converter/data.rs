@@ -179,8 +179,8 @@ pub fn convert_data(input: &str, source: &Format, target: &Format) -> Conversion
         Format::Xml => data_xml_to_rows(input)?,
         _ => {
             return Err(ConversionError::UnsupportedConversion {
-                source: source.to_string(),
-                target: target.to_string(),
+                from: source.to_string(),
+                to: target.to_string(),
             });
         }
     };
@@ -190,8 +190,8 @@ pub fn convert_data(input: &str, source: &Format, target: &Format) -> Conversion
         Format::Json => rows_to_data_json(&rows),
         Format::Xml => rows_to_data_xml(&rows),
         _ => Err(ConversionError::UnsupportedConversion {
-            source: source.to_string(),
-            target: target.to_string(),
+            from: source.to_string(),
+            to: target.to_string(),
         }),
     }
 }

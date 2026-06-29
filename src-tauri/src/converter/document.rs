@@ -616,8 +616,8 @@ pub fn convert_document(
         }
 
         _ => Err(ConversionError::UnsupportedConversion {
-            source: source.to_string(),
-            target: target.to_string(),
+            from: source.to_string(),
+            to: target.to_string(),
         }),
     }
 }

@@ -1,5 +1,5 @@
 <template>
-  <div style="display:flex;flex-direction:column;flex:1;min-height:0;">
+  <div class="flex flex-col flex-1 min-h-0">
     <FileDropZone v-model="queuedFile" />
 
     <FormatSelector
@@ -17,7 +17,7 @@
       @click="handleConvert"
     >
       <template v-if="status === 'converting'">
-        <span class="spinner" style="width:16px;height:16px;border-width:2px;margin:0"></span>
+        <span class="spinner w-4 h-4 border-2! m-0!"></span>
         {{ t('convert.converting') }}
       </template>
       <template v-else>
