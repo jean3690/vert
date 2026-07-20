@@ -6,30 +6,56 @@ on:
   pull_request:
     branches: [master]
 
+env:
+  CARGO_NET_RETRY: 10
+  CARGO_HTTP_TIMEOUT: 120
+  CARGO_HTTP_MULTIPLEXING: false
+
 jobs:
-  frontend:
-    runs-on: ubuntu-latest
+  # ── Lint & format ──
+  lint:
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          version: 10
+          components: clippy, rustfmt
 
-      - uses: actions/setup-node@v4
+      - uses: Swatinem/rust-cache@v2
         with:
-          node-version: 22
-          cache: pnpm
+          workspaces: src-tauri
+          prefix-key: v2-lint
 
-      - run: pnpm install
-      - run: pnpm build
+      - name: Check formatting
+        run: cargo fmt --check
+        working-directory: src-tauri
 
-  rust:
+      - name: Clippy (all features)
+        run: cargo clippy -- -D warnings
+        working-directory: src-tauri
+
+      - name: Clippy (no-default-features / CLI)
+        run: cargo clippy --no-default-features -- -D warnings
+        working-directory: src-tauri
+
+  # ── Security audit ──
+  audit:
     runs-on: ubuntu-22.04
-    env:
-      CARGO_NET_RETRY: 10
-      CARGO_HTTP_TIMEOUT: 120
-      CARGO_HTTP_MULTIPLEXING: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: taiki-e/install-action@cargo-audit
+      - name: Audit dependencies
+        run: cargo audit
+        working-directory: src-tauri
+        continue-on-error: true  # advisory DB may be stale on PRs
+
+  # ── Rust tests (Linux) ──
+  test-linux:
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -47,7 +73,6 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf
-          dpkg -L libglib2.0-dev | grep -E '\.pc$$' | head -5
           pkg-config --modversion glib-2.0
 
       - uses: dtolnay/rust-toolchain@stable
@@ -55,12 +80,56 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          prefix-key: v1-rust
+          prefix-key: v2-test-linux
 
-      - name: Run tests
+      - name: Run tests (all features)
         run: cargo test
         working-directory: src-tauri
 
-      - name: Build CLI
+      - name: Build CLI release
         run: cargo build --bin vert-cli --release --no-default-features
         working-directory: src-tauri
+
+  # ── Rust tests (Windows) ──
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          prefix-key: v2-test-win
+
+      - name: Run library tests (no GUI deps)
+        run: cargo test --no-default-features --lib
+        working-directory: src-tauri
+
+      - name: Build CLI release
+        run: cargo build --bin vert-cli --release --no-default-features
+        working-directory: src-tauri
+
+  # ── Frontend ──
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install
+
+      - name: Type check
+        run: npx vue-tsc --noEmit
+
+      - name: Build
+        run: pnpm build

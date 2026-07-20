@@ -7,15 +7,37 @@ on:
 permissions:
   contents: write
 
+env:
+  CARGO_NET_RETRY: 10
+  CARGO_HTTP_TIMEOUT: 120
+  CARGO_HTTP_MULTIPLEXING: false
+
 jobs:
-  # ── Desktop app (Tauri) per platform ──
+  # ── Version check ──
+  check-version:
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from Cargo.toml
+        id: version
+        run: |
+          VER=$(grep '^version = ' src-tauri/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$VER" != "$TAG" ]; then
+            echo "❌ Tag v$TAG does not match Cargo.toml version $VER"
+            exit 1
+          fi
+          echo "value=$VER" >> "$GITHUB_OUTPUT"
+          echo "✅ Version $VER matches tag $GITHUB_REF_NAME"
+
+  # ── Desktop app (Tauri) ──
 
   desktop-windows:
+    needs: check-version
     runs-on: windows-latest
-    env:
-      CARGO_NET_RETRY: 10
-      CARGO_HTTP_TIMEOUT: 120
-      CARGO_HTTP_MULTIPLEXING: false
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +57,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          prefix-key: v2-release-win
 
       - name: Build Tauri
         run: pnpm tauri build
@@ -46,11 +69,8 @@ jobs:
           files: src-tauri/target/release/bundle/msi/*.msi
 
   desktop-macos:
+    needs: check-version
     runs-on: macos-latest
-    env:
-      CARGO_NET_RETRY: 10
-      CARGO_HTTP_TIMEOUT: 120
-      CARGO_HTTP_MULTIPLEXING: false
     steps:
       - uses: actions/checkout@v4
 
@@ -70,6 +90,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          prefix-key: v2-release-macos
 
       - name: Build Tauri
         run: pnpm tauri build
@@ -81,26 +102,13 @@ jobs:
           files: src-tauri/target/release/bundle/dmg/*.dmg
 
   desktop-linux:
+    needs: check-version
     runs-on: ubuntu-22.04
-    env:
-      CARGO_NET_RETRY: 10
-      CARGO_HTTP_TIMEOUT: 120
-      CARGO_HTTP_MULTIPLEXING: false
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
       - name: Install system deps
         run: |
-          # Retry apt-get update up to 5 times
           for i in $(seq 1 5); do sudo apt-get update -qq && break || sleep 10; done
           sudo apt-get install -y --no-install-recommends \
             pkg-config \
@@ -113,9 +121,15 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf
-          # Verify glib-2.0 is found
-          dpkg -L libglib2.0-dev | grep -E '\.pc$' | head -5
-          pkg-config --modversion glib-2.0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
 
       - run: pnpm install
 
@@ -124,11 +138,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          prefix-key: v2-release-linux
 
       - name: Build Tauri
         run: pnpm tauri build
 
-      - name: Upload AppImage
+      - name: Upload AppImage & Deb
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
@@ -139,22 +154,25 @@ jobs:
   # ── CLI binaries per platform ──
 
   cli:
-    env:
-      CARGO_NET_RETRY: 10
-      CARGO_HTTP_TIMEOUT: 120
-      CARGO_HTTP_MULTIPLEXING: false
+    needs: check-version
     strategy:
       matrix:
         include:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            name: vert-linux-x64
+            name: vert-linux-amd64
+          - os: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+            name: vert-linux-arm64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            name: vert-win-x64.exe
+            name: vert-windows-amd64.exe
           - os: macos-latest
             target: x86_64-apple-darwin
-            name: vert-macos-x64
+            name: vert-macos-amd64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: vert-macos-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -163,20 +181,30 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Install cross-compile deps (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            gcc-aarch64-linux-gnu \
+            libc6-dev-arm64-cross
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          prefix-key: v2-release-cli-${{ matrix.target }}
 
       - name: Build CLI
         run: cargo build --bin vert-cli --release --target ${{ matrix.target }} --no-default-features
         working-directory: src-tauri
 
-      - name: Rename binary
+      - name: Prepare binary
         run: |
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            cp target/${{ matrix.target }}/release/vert-cli.exe ${{ matrix.name }}
+            cp "target/${{ matrix.target }}/release/vert-cli.exe" "${{ matrix.name }}"
           else
-            cp target/${{ matrix.target }}/release/vert-cli ${{ matrix.name }}
+            cp "target/${{ matrix.target }}/release/vert-cli" "${{ matrix.name }}"
           fi
         working-directory: src-tauri
         shell: bash

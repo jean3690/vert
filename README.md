@@ -2,6 +2,9 @@
 
 **v0.2.0** — Universal file format converter — desktop app + CLI. Built with Tauri 2 + Vue 3 + Rust.
 
+[![CI](https://github.com/jean3690/vert/actions/workflows/ci.yml/badge.svg)](https://github.com/jean3690/vert/actions/workflows/ci.yml)
+[![Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+
 [中文](README.zh.md) | [Apache 2.0 License](LICENSE)
 
 ## Supported formats (21)
