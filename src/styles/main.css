@@ -15,6 +15,7 @@
   --color-config: #3b82f6;
   --color-data: #10b981;
   --color-document: #f59e0b;
+  --color-image: #ec4899;
 
   --radius-sm: 6px;
   --radius: 12px;
@@ -419,6 +420,7 @@ body {
 .dot.config { background: var(--color-config); }
 .dot.data { background: var(--color-data); }
 .dot.document { background: var(--color-document); }
+.dot.image { background: var(--color-image); }
 
 .format-chip.selected .dot {
   background: rgba(255,255,255,0.6);
@@ -439,11 +441,13 @@ body {
 .format-badge.config { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
 .format-badge.data { background: rgba(16, 185, 129, 0.12); color: #059669; }
 .format-badge.document { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+.format-badge.image { background: rgba(236, 72, 153, 0.12); color: #ec4899; }
 
 @media (prefers-color-scheme: dark) {
   .format-badge.config { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
   .format-badge.data { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
   .format-badge.document { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+  .format-badge.image { background: rgba(236, 72, 153, 0.2); color: #f9a8d4; }
 }
 
 

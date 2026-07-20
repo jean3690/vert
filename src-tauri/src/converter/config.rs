@@ -45,6 +45,38 @@ fn xml_to_value(input: &str) -> ConversionResult<Value> {
         .map_err(|e| ConversionError::ParseError(format!("xml: {}", e)))
 }
 
+fn ini_to_value(input: &str) -> ConversionResult<Value> {
+    // ini::macro_read returns HashMap<section, HashMap<key, Option<value>>>
+    // Empty-string section key = sectionless entries
+    let sections: std::collections::HashMap<String, std::collections::HashMap<String, Option<String>>> =
+        ini::macro_safe_read(input)
+            .map_err(|e| ConversionError::ParseError(format!("ini: {}", e)))?;
+
+    let mut root = serde_json::Map::new();
+
+    for (section_name, props) in &sections {
+        let mut map = serde_json::Map::new();
+        for (k, v) in props {
+            let val = v.clone().unwrap_or_default();
+            map.insert(k.clone(), Value::String(val));
+        }
+        if !map.is_empty() {
+            let key = if section_name.is_empty() {
+                "_general".to_string()
+            } else {
+                section_name.clone()
+            };
+            root.insert(key, Value::Object(map));
+        }
+    }
+
+    if root.is_empty() {
+        root.insert("_general".to_string(), Value::Object(serde_json::Map::new()));
+    }
+
+    Ok(Value::Object(root))
+}
+
 // ── Serialize functions ──
 
 fn value_to_properties(value: &Value) -> ConversionResult<String> {
@@ -83,6 +115,52 @@ fn value_to_xml(value: &Value) -> ConversionResult<String> {
         .map_err(|e| ConversionError::SerializeError(format!("xml: {}", e)))
 }
 
+fn val_to_str(v: &Value) -> String {
+    v.as_str().map(|s| s.to_string()).unwrap_or_else(|| v.to_string())
+}
+
+fn value_to_ini(value: &Value) -> ConversionResult<String> {
+    let obj = value
+        .as_object()
+        .ok_or_else(|| ConversionError::SerializeError("ini requires an object".into()))?;
+
+    let mut output = String::new();
+
+    // First pass: write sectionless entries
+    if let Some(general) = obj.get("_general").and_then(|v| v.as_object()) {
+        for (k, v) in general {
+            output.push_str(&format!("{}={}\n", k, val_to_str(v)));
+        }
+        if !general.is_empty() {
+            output.push('\n');
+        }
+    } else {
+        let mut has_top = false;
+        for (k, v) in obj {
+            if v.is_object() { continue; }
+            has_top = true;
+            output.push_str(&format!("{}={}\n", k, val_to_str(v)));
+        }
+        if has_top {
+            output.push('\n');
+        }
+    }
+
+    // Second pass: named sections
+    for (k, v) in obj {
+        if k == "_general" { continue; }
+        if let Some(map) = v.as_object() {
+            output.push_str(&format!("[{}]\n", k));
+            for (pk, pv) in map {
+                output.push_str(&format!("{}={}\n", pk, val_to_str(pv)));
+            }
+            output.push('\n');
+        }
+    }
+
+    Ok(output)
+}
+
 // ── Dispatch ──
 
 pub fn convert_config(
@@ -96,6 +174,7 @@ pub fn convert_config(
         Format::Json => json_to_value(input)?,
         Format::Toml => toml_to_value(input)?,
         Format::Xml => xml_to_value(input)?,
+        Format::Ini => ini_to_value(input)?,
         _ => {
             return Err(ConversionError::UnsupportedConversion {
                 from: source.to_string(),
@@ -110,6 +189,7 @@ pub fn convert_config(
         Format::Json => value_to_json(&value),
         Format::Toml => value_to_toml(&value),
         Format::Xml => value_to_xml(&value),
+        Format::Ini => value_to_ini(&value),
         _ => Err(ConversionError::UnsupportedConversion {
             from: source.to_string(),
             to: target.to_string(),

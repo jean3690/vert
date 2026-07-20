@@ -464,6 +464,137 @@ fn html_to_markdown(input: &str) -> String {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// TXT conversions
+// ═══════════════════════════════════════════════════════════════
+
+fn txt_to_markdown(input: &str) -> String {
+    let mut md = String::new();
+    for line in input.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            md.push('\n');
+        } else {
+            md.push_str(&format!("{}\n\n", trimmed));
+        }
+    }
+    md
+}
+
+fn txt_to_html(input: &str) -> String {
+    let mut html = String::from("<!DOCTYPE html>\n<html>\n<body>\n");
+    for line in input.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            html.push_str("<br>\n");
+        } else {
+            html.push_str(&format!("<p>{}</p>\n", trimmed));
+        }
+    }
+    html.push_str("</body>\n</html>\n");
+    html
+}
+
+fn txt_to_pdf(input: &str) -> ConversionResult<Vec<u8>> {
+    let font_family = load_font_family()?;
+    let mut doc = genpdf::Document::new(font_family);
+    doc.set_title("Converted Document");
+    let mut decorator = genpdf::SimplePageDecorator::new();
+    decorator.set_margins(20);
+    doc.set_page_decorator(decorator);
+
+    for line in input.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            doc.push(genpdf::elements::Break::new(1));
+        } else {
+            doc.push(
+                genpdf::elements::Paragraph::new(trimmed.to_string())
+                    .padded((0, 2)),
+            );
+        }
+    }
+
+    let mut output = Vec::new();
+    doc.render(&mut output)
+        .map_err(|e| ConversionError::SerializeError(format!("pdf render: {}", e)))?;
+    Ok(output)
+}
+
+fn docx_to_txt(data: &[u8]) -> ConversionResult<Vec<u8>> {
+    let elements = extract_docx_elements(data)?;
+    let mut txt = String::new();
+    for elem in &elements {
+        match elem.kind {
+            ElementKind::Heading1 => txt.push_str(&format!("\n{}\n\n", elem.text)),
+            ElementKind::Heading2 => txt.push_str(&format!("\n{}\n\n", elem.text)),
+            ElementKind::Heading3 => txt.push_str(&format!("\n{}\n\n", elem.text)),
+            ElementKind::ListItem => txt.push_str(&format!("- {}\n", elem.text)),
+            ElementKind::Normal => txt.push_str(&format!("{}\n\n", elem.text)),
+        }
+    }
+    Ok(txt.into_bytes())
+}
+
+fn markdown_to_txt(input: &str) -> String {
+    let parser = pulldown_cmark::Parser::new(input);
+    let mut txt = String::new();
+    for event in parser {
+        match event {
+            pulldown_cmark::Event::Text(text) => txt.push_str(&text),
+            pulldown_cmark::Event::SoftBreak => txt.push(' '),
+            pulldown_cmark::Event::HardBreak => txt.push('\n'),
+            _ => {}
+        }
+    }
+    txt
+}
+
+fn html_to_txt(input: &str) -> String {
+    let document = scraper::Html::parse_document(input);
+    // Get all text from body, separated by newlines
+    let body_selector = scraper::Selector::parse("body").expect("valid selector");
+    let mut txt = String::new();
+    if let Some(body) = document.select(&body_selector).next() {
+        for el in body.descendants() {
+            if let Some(t) = el.value().as_text() {
+                txt.push_str(t);
+            } else if el.value().as_element().is_some() {
+                let tag = el.value().as_element().unwrap().name();
+                if matches!(tag, "br" | "p" | "div" | "li" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
+                    txt.push('\n');
+                }
+            }
+        }
+    }
+    // Clean up: collapse multiple newlines
+    let mut result = String::new();
+    let mut prev_newline = false;
+    for ch in txt.chars() {
+        if ch == '\n' {
+            if !prev_newline {
+                result.push('\n');
+                prev_newline = true;
+            }
+        } else {
+            result.push(ch);
+            prev_newline = false;
+        }
+    }
+    result.trim().to_string()
+}
+
+fn pdf_to_txt(data: &[u8]) -> ConversionResult<Vec<u8>> {
+    // Write PDF bytes to temp file, then use pdf-extract
+    let dir = std::env::temp_dir();
+    let path = dir.join(format!("vert_pdf_{}.pdf", std::process::id()));
+    std::fs::write(&path, data)?;
+    let text = pdf_extract::extract_text(&path)
+        .map_err(|e| ConversionError::ParseError(format!("pdf extract: {}", e)))?;
+    let _ = std::fs::remove_file(&path);
+    Ok(text.into_bytes())
+}
+
+// ═══════════════════════════════════════════════════════════════
 // PDF rendering (shared)
 // ═══════════════════════════════════════════════════════════════
 
@@ -581,6 +712,315 @@ pub fn docx_to_pdf(data: &[u8]) -> ConversionResult<Vec<u8>> {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// EPUB conversions
+// ═══════════════════════════════════════════════════════════════
+
+/// Extract the XHTML content from an EPUB file as a single HTML string.
+fn epub_to_html(data: &[u8]) -> ConversionResult<String> {
+    use std::io::Read;
+    use zip::ZipArchive;
+
+    let reader = std::io::Cursor::new(data);
+    let mut archive = ZipArchive::new(reader)
+        .map_err(|e| ConversionError::ParseError(format!("epub zip: {}", e)))?;
+
+    let mut container_xml = String::new();
+    archive
+        .by_name("META-INF/container.xml")
+        .map_err(|_| ConversionError::ParseError("epub missing container.xml".into()))?
+        .read_to_string(&mut container_xml)
+        .map_err(|e| ConversionError::ParseError(format!("read container: {}", e)))?;
+
+    let opf_path = extract_opf_path(&container_xml)?;
+
+    let mut opf_xml = String::new();
+    archive
+        .by_name(&opf_path)
+        .map_err(|_| ConversionError::ParseError("epub missing OPF file".into()))?
+        .read_to_string(&mut opf_xml)
+        .map_err(|e| ConversionError::ParseError(format!("read opf: {}", e)))?;
+
+    let content_files = extract_xhtml_paths(&opf_xml, &opf_path);
+
+    let mut combined_html = String::from("<!DOCTYPE html>\n<html>\n<body>\n");
+    for file_path in &content_files {
+        if let Ok(mut entry) = archive.by_name(file_path) {
+            let mut content = String::new();
+            if entry.read_to_string(&mut content).is_ok() {
+                let doc = scraper::Html::parse_document(&content);
+                let body_sel = scraper::Selector::parse("body").unwrap();
+                if let Some(body) = doc.select(&body_sel).next() {
+                    for child in body.children() {
+                        if let Some(t) = child.value().as_text() {
+                            let escaped = t
+                                .replace('&', "&amp;")
+                                .replace('<', "&lt;")
+                                .replace('>', "&gt;");
+                            combined_html.push_str(&format!("<p>{}</p>\n", escaped));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    combined_html.push_str("</body>\n</html>\n");
+    Ok(combined_html)
+}
+
+fn extract_opf_path(container_xml: &str) -> ConversionResult<String> {
+    use quick_xml::events::Event;
+    use quick_xml::Reader;
+
+    let mut reader = Reader::from_str(container_xml);
+    reader.config_mut().trim_text(true);
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Empty(ref e)) => {
+                if e.name().as_ref().ends_with(b"rootfile") {
+                    for attr in e.attributes().flatten() {
+                        if attr.key.as_ref() == b"full-path" {
+                            return Ok(String::from_utf8_lossy(&attr.value).to_string());
+                        }
+                    }
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(_) => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Err(ConversionError::ParseError("cannot find OPF path in container.xml".into()))
+}
+
+fn extract_xhtml_paths(opf_xml: &str, opf_path: &str) -> Vec<String> {
+    use quick_xml::events::Event;
+    use quick_xml::Reader;
+
+    let base_dir = std::path::Path::new(opf_path).parent().unwrap_or(std::path::Path::new(""));
+    let mut id_to_href: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut spine_order: Vec<String> = Vec::new();
+    let mut in_manifest = false;
+    let mut reader = Reader::from_str(opf_xml);
+    reader.config_mut().trim_text(true);
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(ref e)) => {
+                let tag = e.local_name().as_ref().to_vec();
+                if tag == b"manifest" {
+                    in_manifest = true;
+                } else if in_manifest && tag == b"item" {
+                    let mut id = String::new();
+                    let mut href = String::new();
+                    let mut media_type = String::new();
+                    for attr in e.attributes().flatten() {
+                        let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                        let val = String::from_utf8_lossy(&attr.value).to_string();
+                        match key.as_str() {
+                            "id" => id = val,
+                            "href" => href = val,
+                            "media-type" => media_type = val,
+                            _ => {}
+                        }
+                    }
+                    if media_type == "application/xhtml+xml" {
+                        id_to_href.insert(id, href);
+                    }
+                }
+            }
+            Ok(Event::Empty(ref e)) => {
+                let tag = e.local_name().as_ref().to_vec();
+                if tag == b"itemref" {
+                    for attr in e.attributes().flatten() {
+                        if attr.key.as_ref() == b"idref" {
+                            let id = String::from_utf8_lossy(&attr.value).to_string();
+                            if id_to_href.contains_key(&id) {
+                                spine_order.push(id);
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(Event::End(ref e)) => {
+                let tag = e.local_name().as_ref().to_vec();
+                if tag == b"manifest" {
+                    in_manifest = false;
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(_) => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    spine_order
+        .iter()
+        .filter_map(|id| id_to_href.get(id))
+        .map(|href| {
+            let full_path = base_dir.join(href);
+            full_path.to_string_lossy().to_string().replace('\\', "/")
+        })
+        .collect()
+}
+
+fn epub_to_txt(data: &[u8]) -> ConversionResult<Vec<u8>> {
+    let html = epub_to_html(data)?;
+    Ok(html_to_txt(&html).into_bytes())
+}
+
+fn epub_to_markdown(data: &[u8]) -> ConversionResult<Vec<u8>> {
+    let html = epub_to_html(data)?;
+    Ok(html_to_markdown(&html).into_bytes())
+}
+
+fn html_to_epub(html_content: &str) -> ConversionResult<Vec<u8>> {
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+
+    // Generate a deterministic UUID-like identifier
+    let pid = std::process::id();
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let uuid = format!("{:016x}-{:04x}", ts, pid);
+    let title = "Converted Document";
+
+    let xhtml = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>{title}</title></head>
+<body>{body}</body>
+</html>"#,
+        title = title,
+        body = extract_body(html_content)
+    );
+
+    let container_xml = r#"<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"#;
+
+    let opf_xml = format!(
+        r#"<?xml version="1.0"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
+  <metadata>
+    <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">{title}</dc:title>
+    <dc:identifier id="BookId">{uuid}</dc:identifier>
+    <dc:language xmlns:dc="http://purl.org/dc/elements/1.1/">en</dc:language>
+  </metadata>
+  <manifest>
+    <item id="content" href="content.xhtml" media-type="application/xhtml+xml"/>
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+  </manifest>
+  <spine toc="ncx">
+    <itemref idref="content"/>
+  </spine>
+</package>"#,
+        title = title,
+        uuid = uuid
+    );
+
+    let ncx_xml = format!(
+        r#"<?xml version="1.0"?>
+<!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN" "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <head><meta name="dtb:uid" content="{uuid}"/></head>
+  <docTitle><text>{title}</text></docTitle>
+  <navMap>
+    <navPoint id="navpoint-1" playOrder="1">
+      <navLabel><text>{title}</text></navLabel>
+      <content src="content.xhtml"/>
+    </navPoint>
+  </navMap>
+</ncx>"#,
+        uuid = uuid,
+        title = title
+    );
+
+    let mut zip_buf = Vec::new();
+    {
+        let mut zip_writer = zip::ZipWriter::new(std::io::Cursor::new(&mut zip_buf));
+        let store = SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored);
+        let deflate = SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+
+        let mut add_file = |path: &str, data: &[u8], opts: SimpleFileOptions| -> ConversionResult<()> {
+            zip_writer
+                .start_file(path, opts)
+                .map_err(|e| ConversionError::SerializeError(format!("zip {}: {}", path, e)))?;
+            zip_writer
+                .write_all(data)
+                .map_err(|e| ConversionError::SerializeError(format!("write {}: {}", path, e)))?;
+            Ok(())
+        };
+
+        add_file("mimetype", b"application/epub+zip", store)?;
+        add_file("META-INF/container.xml", container_xml.as_bytes(), deflate)?;
+        add_file("OEBPS/content.opf", opf_xml.as_bytes(), deflate)?;
+        add_file("OEBPS/toc.ncx", ncx_xml.as_bytes(), deflate)?;
+        add_file("OEBPS/content.xhtml", xhtml.as_bytes(), deflate)?;
+
+        zip_writer
+            .finish()
+            .map_err(|e| ConversionError::SerializeError(format!("zip finish: {}", e)))?;
+    }
+
+    Ok(zip_buf)
+}
+
+fn extract_body(html: &str) -> String {
+    let doc = scraper::Html::parse_document(html);
+    let body_sel = scraper::Selector::parse("body").unwrap();
+    if let Some(body) = doc.select(&body_sel).next() {
+        let mut inner = String::new();
+        for child in body.children() {
+            if let Some(t) = child.value().as_text() {
+                inner.push_str(&t.text);
+            } else if let Some(el) = child.value().as_element() {
+                let tag = el.name();
+                // Collect text from element descendants
+                let mut text = String::new();
+                for desc in child.descendants() {
+                    if let Some(txt) = desc.value().as_text() {
+                        text.push_str(&txt.text);
+                    }
+                }
+                if !text.trim().is_empty() {
+                    inner.push_str(&format!("<{}>{}</{}>\n", tag, text.trim(), tag));
+                }
+            }
+        }
+        return inner;
+    }
+    String::new()
+}
+
+fn txt_to_epub(input: &str) -> ConversionResult<Vec<u8>> {
+    let html = format!(
+        "<html><body><pre>{}</pre></body></html>",
+        input.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+    );
+    html_to_epub(&html)
+}
+
+fn md_to_epub(input: &str) -> ConversionResult<Vec<u8>> {
+    let html = markdown_to_html(input);
+    let full_html = format!("<!DOCTYPE html>\n<html>\n<body>\n{}</body>\n</html>", html);
+    html_to_epub(&full_html)
+}
+
+// ═══════════════════════════════════════════════════════════════
 // Dispatch
 // ═══════════════════════════════════════════════════════════════
 
@@ -590,29 +1030,81 @@ pub fn convert_document(
     target: &Format,
 ) -> ConversionResult<Vec<u8>> {
     match (source, target) {
+        // EPUB → *
+        (Format::Epub, Format::Html) => {
+            let html = epub_to_html(input)?;
+            Ok(html.into_bytes())
+        }
+        (Format::Epub, Format::Txt) => epub_to_txt(input),
+        (Format::Epub, Format::Markdown) => epub_to_markdown(input),
+        (Format::Epub, Format::Pdf) => {
+            let html = epub_to_html(input)?;
+            html_to_pdf(&html)
+        }
+
         // DOCX → *
         (Format::Docx, Format::Pdf) => docx_to_pdf(input),
         (Format::Docx, Format::Html) => docx_to_html(input),
         (Format::Docx, Format::Markdown) => docx_to_markdown(input),
+        (Format::Docx, Format::Txt) => docx_to_txt(input),
 
         // Markdown → *
         (Format::Markdown, Format::Html) => {
-            let s = std::str::from_utf8(input).map_err(|e| ConversionError::Utf8Error(e.to_string()))?;
+            let s = to_str(input)?;
             Ok(markdown_to_html(s).into_bytes())
         }
         (Format::Markdown, Format::Pdf) => {
-            let s = std::str::from_utf8(input).map_err(|e| ConversionError::Utf8Error(e.to_string()))?;
+            let s = to_str(input)?;
             markdown_to_pdf(s)
+        }
+        (Format::Markdown, Format::Txt) => {
+            let s = to_str(input)?;
+            Ok(markdown_to_txt(s).into_bytes())
         }
 
         // HTML → *
         (Format::Html, Format::Pdf) => {
-            let s = std::str::from_utf8(input).map_err(|e| ConversionError::Utf8Error(e.to_string()))?;
+            let s = to_str(input)?;
             html_to_pdf(s)
         }
         (Format::Html, Format::Markdown) => {
-            let s = std::str::from_utf8(input).map_err(|e| ConversionError::Utf8Error(e.to_string()))?;
+            let s = to_str(input)?;
             Ok(html_to_markdown(s).into_bytes())
+        }
+        (Format::Html, Format::Txt) => {
+            let s = to_str(input)?;
+            Ok(html_to_txt(s).into_bytes())
+        }
+
+        // PDF → *
+        (Format::Pdf, Format::Txt) => pdf_to_txt(input),
+
+        // TXT → *
+        (Format::Txt, Format::Markdown) => {
+            let s = to_str(input)?;
+            Ok(txt_to_markdown(s).into_bytes())
+        }
+        (Format::Txt, Format::Html) => {
+            let s = to_str(input)?;
+            Ok(txt_to_html(s).into_bytes())
+        }
+        (Format::Txt, Format::Pdf) => {
+            let s = to_str(input)?;
+            txt_to_pdf(s)
+        }
+
+        // → EPUB
+        (Format::Html, Format::Epub) => {
+            let s = to_str(input)?;
+            html_to_epub(s)
+        }
+        (Format::Txt, Format::Epub) => {
+            let s = to_str(input)?;
+            txt_to_epub(s)
+        }
+        (Format::Markdown, Format::Epub) => {
+            let s = to_str(input)?;
+            md_to_epub(s)
         }
 
         _ => Err(ConversionError::UnsupportedConversion {
@@ -620,6 +1112,10 @@ pub fn convert_document(
             to: target.to_string(),
         }),
     }
+}
+
+fn to_str(input: &[u8]) -> ConversionResult<&str> {
+    std::str::from_utf8(input).map_err(|e| ConversionError::Utf8Error(e.to_string()))
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -82,10 +82,21 @@ const sourceFormats: { fmt: FileFormat; group: string }[] = [
   { fmt: 'json', group: 'Config' },
   { fmt: 'toml', group: 'Config' },
   { fmt: 'xml', group: 'Config' },
+  { fmt: 'ini', group: 'Config' },
   { fmt: 'csv', group: 'Data' },
+  { fmt: 'epub', group: 'Document' },
   { fmt: 'docx', group: 'Document' },
+  { fmt: 'pdf', group: 'Document' },
   { fmt: 'markdown', group: 'Document' },
   { fmt: 'html', group: 'Document' },
+  { fmt: 'txt', group: 'Document' },
+  { fmt: 'svg', group: 'Image' },
+  { fmt: 'png', group: 'Image' },
+  { fmt: 'jpeg', group: 'Image' },
+  { fmt: 'gif', group: 'Image' },
+  { fmt: 'webp', group: 'Image' },
+  { fmt: 'bmp', group: 'Image' },
+  { fmt: 'tiff', group: 'Image' },
 ];
 
 const groupedSources = computed(() => {

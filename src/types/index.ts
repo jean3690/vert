@@ -1,9 +1,11 @@
 /** All supported file formats */
 export type FileFormat =
-  | 'properties' | 'yaml' | 'json' | 'toml' | 'xml'
+  | 'properties' | 'yaml' | 'json' | 'toml' | 'xml' | 'ini'
   | 'csv'
-  | 'docx' | 'pdf'
-  | 'markdown' | 'html';
+  | 'epub' | 'docx' | 'pdf'
+  | 'markdown' | 'html'
+  | 'txt'
+  | 'svg' | 'png' | 'jpeg' | 'gif' | 'webp' | 'bmp' | 'tiff';
 
 /** Result returned by the convert_file Rust command */
 export interface ConvertResult {

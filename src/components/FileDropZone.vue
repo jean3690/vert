@@ -88,7 +88,7 @@ async function browseFile() {
       multiple: false,
       filters: [{
         name: 'All Supported',
-        extensions: ['properties','yaml','yml','json','toml','xml','csv','docx','md','markdown','html','htm'],
+        extensions: ['properties','yaml','yml','json','toml','xml','ini','cfg','csv','epub','docx','md','markdown','html','htm','txt','text','svg','png','jpg','jpeg','jpe','gif','webp','bmp','dib','tiff','tif'],
       }],
     });
     if (selected) handleFilePath(selected as string);

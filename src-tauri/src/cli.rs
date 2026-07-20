@@ -103,15 +103,27 @@ fn list() {
             converter::Format::Json,
             converter::Format::Toml,
             converter::Format::Xml,
+            converter::Format::Ini,
         ]),
         ("Data", &[
             converter::Format::Csv,
         ]),
         ("Document", &[
+            converter::Format::Epub,
             converter::Format::Docx,
             converter::Format::Pdf,
             converter::Format::Markdown,
             converter::Format::Html,
+            converter::Format::Txt,
+        ]),
+        ("Image", &[
+            converter::Format::Svg,
+            converter::Format::Png,
+            converter::Format::Jpeg,
+            converter::Format::Gif,
+            converter::Format::Webp,
+            converter::Format::Bmp,
+            converter::Format::Tiff,
         ]),
     ];
 
