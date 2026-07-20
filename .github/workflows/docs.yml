@@ -1,0 +1,31 @@
+name: Deploy Docs
+
+on:
+  push:
+    branches: [master]
+    paths: ["docs/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v6
+      - name: Build docs
+        run: |
+          if [ -d "docs" ] && [ -f "docs/package.json" ]; then
+            cd docs && pnpm install --frozen-lockfile && pnpm build
+          else
+            echo "No docs site configured, skipping"
+          fi

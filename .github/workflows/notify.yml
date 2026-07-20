@@ -1,0 +1,94 @@
+name: Notifications
+
+on:
+  pull_request_target:
+    types: [opened, closed]
+  release:
+    types: [published, released]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'release' || (!github.event.release.draft && !github.event.release.prerelease) }}
+    steps:
+      - name: Build message
+        id: msg
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_USER: ${{ github.event.pull_request.user.login }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+          PR_MERGED_BY: ${{ github.event.pull_request.merged_by.login }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_NAME: ${{ github.event.release.name }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+          RELEASE_BODY: ${{ github.event.release.body }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, re
+
+          event = os.environ["EVENT_NAME"]
+          action = os.environ.get("EVENT_ACTION", "")
+          msg = None
+
+          if event == "release":
+              tag = os.environ["RELEASE_TAG"]
+              url = os.environ["RELEASE_URL"]
+              body = os.environ.get("RELEASE_BODY", "")[:800]
+              body = re.sub(r'#{1,6}\s*', '', body)
+              body = re.sub(r'\*\*(.+?)\*\*', r'\1', body)
+              body = re.sub(r'\*(.+?)\*', r'\1', body)
+              body = re.sub(r'`(.+?)`', r'\1', body)
+              body = re.sub(r'\[(.+?)\]\(.+?\)', r'\1', body)
+              body = re.sub(r'\n{3,}', '\n\n', body)
+              body = body.strip()
+              msg = "\n".join([
+                  f"🚀 Vert {tag}",
+                  "",
+                  body,
+                  "",
+                  f"Download: {url}",
+              ])
+
+          elif event in ("pull_request", "pull_request_target"):
+              title = os.environ["PR_TITLE"]
+              url = os.environ["PR_URL"]
+              if action == "opened":
+                  user = os.environ["PR_USER"]
+                  msg = "\n".join([
+                      "🔀 New Pull Request",
+                      f"Title: {title}",
+                      f"Author: {user}",
+                      f"Link: {url}",
+                  ])
+              elif action == "closed" and os.environ.get("PR_MERGED") == "true":
+                  user = os.environ.get("PR_MERGED_BY", "unknown")
+                  msg = "\n".join([
+                      "✅ PR Merged",
+                      f"Title: {title}",
+                      f"Merged by: {user}",
+                      f"Link: {url}",
+                  ])
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              if msg:
+                  f.write(f"skip=false\n")
+                  delim = "EOF_MSG"
+                  f.write(f"msg<<{delim}\n{msg}\n{delim}\n")
+              else:
+                  f.write(f"skip=true\n")
+          PYEOF
+
+      - name: Send to Feishu
+        if: ${{ steps.msg.outputs.skip != 'true' }}
+        env:
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          MSG_CONTENT: ${{ steps.msg.outputs.msg }}
+        run: |
+          if [ -n "$FEISHU_WEBHOOK_URL" ]; then
+            curl -s -X POST "$FEISHU_WEBHOOK_URL" \
+              -H 'Content-Type: application/json' \
+              -d "$(jq -n --arg text "$MSG_CONTENT" '{msg_type: "text", content: {text: $text}}')"
+          fi

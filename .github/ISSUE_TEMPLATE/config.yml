@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation / 文档
+    url: https://github.com/jean3690/vert#readme
+    about: Check the README before submitting an issue. / 提交 issue 前可先查看 README。

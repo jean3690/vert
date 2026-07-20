@@ -1,0 +1,54 @@
+name: "💡 Feature Request / 功能建议"
+description: Propose a new format, conversion path, or UI improvement. / 提议新格式支持、转换路径或界面改进。
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        好的建议最好说明使用场景和期望效果。
+
+  - type: input
+    id: formats
+    attributes:
+      label: 涉及的文件格式
+      description: 如果是新格式支持，请注明格式名称和常见扩展名。如果是通用功能请填"通用"。
+      placeholder: "例如：EPUB / SVG / 通用"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 当前痛点
+      description: 现在做这件事有什么不方便？
+      placeholder: "例如：需要把 EPUB 转成 PDF，但 Vert 目前不支持 EPUB 格式。"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望方案
+      description: 希望怎么支持？
+      placeholder: "例如：支持 EPUB → PDF、EPUB → TXT 转换。"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 优先级
+      options:
+        - "🔴 P0 紧急 · 下个版本必须做"
+        - "🟠 P1 重要 · 尽快处理"
+        - "🟡 P2 普通 · 按排期处理"
+        - "🟢 P3 低优 · 有空再做"
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息
+      description: 参考截图、替代方案、相关标准/规范等。

@@ -1,0 +1,78 @@
+name: "🐞 Bug Report / 问题反馈"
+description: Conversion errors, crashes, format detection issues, UI bugs. / 转换错误、程序崩溃、格式识别问题、界面异常。
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量提供文件格式、Vert 版本、操作系统和复现步骤。
+        Vert 版本和系统信息可在应用内通过「设置 → 关于」复制。
+
+  - type: input
+    id: version
+    attributes:
+      label: Vert 版本
+      description: 使用的 Vert 版本号。
+      placeholder: "例如：v0.2.0"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: 操作系统
+      description: 操作系统和架构。
+      placeholder: "例如：Windows 11 x64 / macOS 15 arm64 / Ubuntu 22.04"
+    validations:
+      required: true
+
+  - type: input
+    id: formats
+    attributes:
+      label: 源格式 → 目标格式
+      description: 从什么格式转换到什么格式？
+      placeholder: "例如：JSON → YAML / PNG → WebP / DOCX → PDF"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 请描述复现步骤、期望结果和实际结果。
+      placeholder: |
+        1. 复现步骤：拖入文件 → 选择目标格式 → 点击转换
+        2. 期望结果：成功生成目标文件
+        3. 实际结果：报错 / 输出异常 / 程序崩溃
+        4. 附上截图或错误日志（如有）
+    validations:
+      required: true
+
+  - type: textarea
+    id: sample
+    attributes:
+      label: 示例文件（可选）
+      description: 如果可以，请提供最小可复现的示例文件内容（注意脱敏）。
+      placeholder: |
+        提供一个最小的示例文件内容，帮助快速定位问题。
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 优先级
+      options:
+        - "🔴 P0 紧急 · 核心转换功能不可用"
+        - "🟠 P1 重要 · 尽快处理"
+        - "🟡 P2 普通 · 按排期处理"
+        - "🟢 P3 低优 · 有空再修"
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息
+      description: 截图、特殊文件、环境细节等。

@@ -2,215 +2,238 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
+    tags:
+      - "v*"
 
 permissions:
   contents: write
 
-env:
-  CARGO_NET_RETRY: 10
-  CARGO_HTTP_TIMEOUT: 120
-  CARGO_HTTP_MULTIPLEXING: false
-
 jobs:
-  # ── Version check ──
-  check-version:
-    runs-on: ubuntu-22.04
-    outputs:
-      version: ${{ steps.version.outputs.value }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Extract version from Cargo.toml
-        id: version
-        run: |
-          VER=$(grep '^version = ' src-tauri/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
-          TAG="${GITHUB_REF_NAME#v}"
-          if [ "$VER" != "$TAG" ]; then
-            echo "❌ Tag v$TAG does not match Cargo.toml version $VER"
-            exit 1
-          fi
-          echo "value=$VER" >> "$GITHUB_OUTPUT"
-          echo "✅ Version $VER matches tag $GITHUB_REF_NAME"
-
-  # ── Desktop app (Tauri) ──
-
-  desktop-windows:
-    needs: check-version
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          prefix-key: v2-release-win
-
-      - name: Build Tauri
-        run: pnpm tauri build
-
-      - name: Upload MSI
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          files: src-tauri/target/release/bundle/msi/*.msi
-
-  desktop-macos:
-    needs: check-version
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          prefix-key: v2-release-macos
-
-      - name: Build Tauri
-        run: pnpm tauri build
-
-      - name: Upload DMG
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          files: src-tauri/target/release/bundle/dmg/*.dmg
-
-  desktop-linux:
-    needs: check-version
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install system deps
-        run: |
-          for i in $(seq 1 5); do sudo apt-get update -qq && break || sleep 10; done
-          sudo apt-get install -y --no-install-recommends \
-            pkg-config \
-            libglib2.0-dev \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libgdk-pixbuf2.0-dev \
-            libpango1.0-dev \
-            libcairo2-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          prefix-key: v2-release-linux
-
-      - name: Build Tauri
-        run: pnpm tauri build
-
-      - name: Upload AppImage & Deb
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          files: |
-            src-tauri/target/release/bundle/appimage/*.AppImage
-            src-tauri/target/release/bundle/deb/*.deb
-
-  # ── CLI binaries per platform ──
-
-  cli:
-    needs: check-version
+  build:
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            name: vert-linux-amd64
-          - os: ubuntu-22.04
-            target: aarch64-unknown-linux-gnu
-            name: vert-linux-arm64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            name: vert-windows-amd64.exe
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            name: vert-macos-amd64
-          - os: macos-latest
+          - platform: macos-latest
             target: aarch64-apple-darwin
-            name: vert-macos-arm64
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
+          - platform: macos-15-intel
+            target: x86_64-apple-darwin
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - platform: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+          - platform: windows-2022
+            target: x86_64-pc-windows-msvc
+            arch: x64
+          - platform: windows-2022
+            target: aarch64-pc-windows-msvc
+            arch: arm64
 
-      - uses: dtolnay/rust-toolchain@stable
+    runs-on: ${{ matrix.platform }}
+    env:
+      CARGO_INCREMENTAL: "0"
+      RUSTC_WRAPPER: sccache
+      SCCACHE_GHA_ENABLED: ${{ secrets.SCCACHE_S3_BUCKET == '' && 'true' || 'false' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.97.1
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install cross-compile deps (Linux ARM64)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            gcc-aarch64-linux-gnu \
-            libc6-dev-arm64-cross
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
-
-      - uses: Swatinem/rust-cache@v2
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
         with:
-          workspaces: src-tauri
-          prefix-key: v2-release-cli-${{ matrix.target }}
+          version: "v0.10.0"
 
-      - name: Build CLI
-        run: cargo build --bin vert-cli --release --target ${{ matrix.target }} --no-default-features
-        working-directory: src-tauri
-
-      - name: Prepare binary
-        run: |
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            cp "target/${{ matrix.target }}/release/vert-cli.exe" "${{ matrix.name }}"
-          else
-            cp "target/${{ matrix.target }}/release/vert-cli" "${{ matrix.name }}"
-          fi
-        working-directory: src-tauri
+      - name: Configure S3 sccache
+        if: env.SCCACHE_GHA_ENABLED != 'true'
         shell: bash
+        env:
+          CACHE_BUCKET: ${{ secrets.SCCACHE_S3_BUCKET }}
+          CACHE_ENDPOINT: ${{ secrets.SCCACHE_S3_ENDPOINT }}
+          CACHE_REGION: ${{ secrets.SCCACHE_S3_REGION }}
+          CACHE_KEY_PREFIX: ${{ secrets.SCCACHE_S3_KEY_PREFIX }}
+          CACHE_ACCESS_KEY_ID: ${{ secrets.SCCACHE_S3_ACCESS_KEY_ID }}
+          CACHE_SECRET_ACCESS_KEY: ${{ secrets.SCCACHE_S3_SECRET_ACCESS_KEY }}
+        run: |
+          {
+            echo "SCCACHE_BUCKET=${CACHE_BUCKET}"
+            echo "SCCACHE_ENDPOINT=${CACHE_ENDPOINT}"
+            echo "SCCACHE_REGION=${CACHE_REGION}"
+            echo "SCCACHE_S3_KEY_PREFIX=${CACHE_KEY_PREFIX}"
+            echo "SCCACHE_S3_USE_SSL=true"
+            echo "AWS_ACCESS_KEY_ID=${CACHE_ACCESS_KEY_ID}"
+            echo "AWS_SECRET_ACCESS_KEY=${CACHE_SECRET_ACCESS_KEY}"
+          } >> "$GITHUB_ENV"
 
-      - name: Upload CLI
-        uses: softprops/action-gh-release@v2
+      - name: Compute Rust dependency hash
+        id: deps-hash
+        shell: bash
+        run: |
+          {
+            find . -name Cargo.toml -not -path './target/*' -print0 \
+              | sort -z \
+              | xargs -0 sed -E '/^version = /d'
+            grep -v '^version = ' Cargo.lock
+          } | sha256sum | cut -d' ' -f1 | {
+            read -r hash
+            echo "hash=${hash:0:20}" >> "$GITHUB_OUTPUT"
+          }
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
         with:
-          generate_release_notes: true
-          files: src-tauri/${{ matrix.name }}
+          workspaces: "src-tauri -> target"
+          shared-key: release-${{ matrix.target }}-${{ steps.deps-hash.outputs.hash }}
+          add-rust-environment-hash-key: false
+          cache-targets: false
+          cache-on-failure: true
+
+      - name: Install Apple certificate (macOS)
+        if: startsWith(matrix.platform, 'macos')
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          echo -n "$APPLE_CERTIFICATE" | base64 --decode -o $CERTIFICATE_PATH
+          security create-keychain -p "" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "" $KEYCHAIN_PATH
+          security import $CERTIFICATE_PATH -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -k "" $KEYCHAIN_PATH
+          security list-keychains -d user -s $KEYCHAIN_PATH login.keychain-db
+
+      - name: Install system dependencies (Linux)
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev xdg-utils
+
+      - name: Setup Tauri signing key
+        shell: bash
+        run: |
+          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/updater.key"
+          KEY_B64=$(base64 < "$RUNNER_TEMP/updater.key" | tr -d '\r\n')
+          echo "TAURI_SIGNING_PRIVATE_KEY=$KEY_B64" >> "$GITHUB_ENV"
+          if [ -n "${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Generate release notes
+        id: release-notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BODY="$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="${GITHUB_REF_NAME}" \
+            --jq '.body')"
+          if [ -z "$BODY" ]; then
+            BODY="Vert ${GITHUB_REF_NAME}"
+          fi
+          DELIM="RELEASE_NOTES_$(date +%s%N)"
+          {
+            echo "body<<$DELIM"
+            printf '%s\n' "$BODY"
+            echo "$DELIM"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_SIGNING_IDENTITY: ${{ startsWith(matrix.platform, 'macos') && secrets.APPLE_SIGNING_IDENTITY || '' }}
+          APPLE_ID: ${{ startsWith(matrix.platform, 'macos') && secrets.APPLE_ID || '' }}
+          APPLE_PASSWORD: ${{ startsWith(matrix.platform, 'macos') && secrets.APPLE_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ startsWith(matrix.platform, 'macos') && secrets.APPLE_TEAM_ID || '' }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Vert ${{ github.ref_name }}"
+          releaseBody: ${{ steps.release-notes.outputs.body }}
+          releaseDraft: true
+          prerelease: false
+          args: --target ${{ matrix.target }}
+
+      - name: Show sccache stats
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: ${SCCACHE_PATH} --show-stats
+
+      - name: Upload Windows portable ZIP
+        if: matrix.arch == 'x64' || matrix.arch == 'arm64'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${env:GITHUB_REF_NAME}".TrimStart("v")
+          $arch = "${{ matrix.arch }}"
+          $portableRoot = "portable"
+          $portableDir = Join-Path $portableRoot "Vert_${version}_${arch}"
+          $zipName = "Vert_${version}_${arch}-portable.zip"
+          $exePath = "src-tauri/target/${{ matrix.target }}/release/vert.exe"
+
+          if (!(Test-Path $exePath)) {
+            Write-Error "Missing Windows executable: $exePath"
+            exit 1
+          }
+
+          New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
+          Copy-Item $exePath (Join-Path $portableDir "Vert.exe") -Force
+          Copy-Item "LICENSE" (Join-Path $portableDir "LICENSE") -Force
+          Copy-Item "README.md" (Join-Path $portableDir "README.md") -Force
+
+          Compress-Archive -Path (Join-Path $portableDir "*") -DestinationPath $zipName -Force
+          gh release upload "${env:GITHUB_REF_NAME}" $zipName --repo "${env:GITHUB_REPOSITORY}" --clobber
+
+  cleanup-release-signatures:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove standalone updater signature assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          mapfile -t SIG_ASSETS < <(
+            gh release view "${GITHUB_REF_NAME}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --json assets \
+              --jq '.assets[].name | select(endswith(".sig"))'
+          )
+
+          if [ "${#SIG_ASSETS[@]}" -eq 0 ]; then
+            echo "No standalone .sig release assets found."
+            exit 0
+          fi
+
+          for ASSET in "${SIG_ASSETS[@]}"; do
+            echo "Deleting release asset: ${ASSET}"
+            gh release delete-asset "${GITHUB_REF_NAME}" "${ASSET}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --yes
+          done
+
+  publish:
+    needs: cleanup-release-signatures
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit ${{ github.ref_name }} --repo ${{ github.repository }} --draft=false

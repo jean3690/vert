@@ -1,0 +1,36 @@
+name: Sync Mirrors
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "**"
+  delete:
+  workflow_dispatch:
+
+concurrency:
+  group: sync-mirrors
+  cancel-in-progress: false
+
+jobs:
+  sync-gitee:
+    name: Sync to Gitee
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Push to Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          set -euo pipefail
+          git remote add gitee "https://jean3690:${GITEE_TOKEN}@gitee.com/jean3690/vert.git"
+          git push gitee --all --force
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            git push gitee ":refs/tags/${GITHUB_REF_NAME}" || true
+          fi
+          git push gitee --tags --force

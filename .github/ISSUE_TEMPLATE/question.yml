@@ -1,0 +1,37 @@
+name: "❓ Question / 问题咨询"
+description: Usage questions, configuration help, or general inquiries. / 使用疑问、配置问题或一般咨询。
+title: "[Question] "
+labels: ["question"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Vert 版本
+      description: 使用的 Vert 版本号，如不确定可填"未知"。
+      placeholder: "例如：v0.2.0 / CLI / 未知"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: 操作系统
+      description: 使用的操作系统。
+      placeholder: "例如：Windows 11 / macOS 15 / Ubuntu 22.04"
+    validations:
+      required: true
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: 描述
+      description: 你想完成什么？已经尝试了什么？
+      placeholder: "例如：想把一个 JSON 配置文件转成 YAML，但不知道选哪个目标格式。"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 补充信息
+      description: 文件类型、特殊需求、已尝试的排查方式等。
